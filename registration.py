@@ -1,6 +1,13 @@
 import numpy as np
 import open3d as o3d
 
+FMR_ENABLED = True
+
+if FMR_ENABLED:
+    import torch
+    from fmr.model import PointNet, Decoder, SolveRegistration
+    import fmr.se_math.transforms as transforms
+
 
 class Estimator:
     def __init__(self, method='centroid'):
@@ -14,6 +21,10 @@ class Estimator:
             return self.fpfh(source, target)
         elif self.method == 'fast_fpfh':
             return self.fast_fpfh(source, target)
+        elif self.method == 'fmr':
+            if not FMR_ENABLED:
+                raise RuntimeError("FMR is not enabled.")
+            return self.feature_metric_reg(source, target)
         else:
             print("Invalid estimation method.")
             return None
@@ -97,11 +108,47 @@ class Estimator:
             maximum_correspondence_distance=distance_threshold))
         
         return result.transformation
-        
+    
+    def feature_metric_reg(self, source, target):
+        '''
+        Feature Metric Registration
+        Refer - https://github.com/XiaoshuiHuang/fmr
+        '''
 
-        
-        
+        dim_k = 1024
+        max_iter = 10
+        loss_type = 1
+        device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
+
+        source = np.asarray(source.points)
+        source = np.expand_dims(source, axis=0)
+        target = np.asarray(target.points)
+        target = np.expand_dims(target, axis=0)
+
+
+        ptnet = PointNet(dim_k)
+        decoder = Decoder()
+        fmr_solver = SolveRegistration(ptnet, decoder, isTest=True)
+
+        model_path = 'fmr/fmr_model_7scene.pth'
+        fmr_solver.load_state_dict(torch.load(model_path, map_location=device))
+        fmr_solver.to(device)
+
+        fmr_solver.eval()
+        with torch.no_grad():
+            source = torch.tensor(source, dtype=torch.float).to(device)
+            target = torch.tensor(target, dtype=torch.float).to(device)
+            fmr_solver.estimate_t(source, target, max_iter)
+            print("FMR Model Loaded")
+
+
+            est_g = fmr_solver.g
+            g_hat = est_g.cpu().contiguous().view(4, 4)
+
+
+
+        return g_hat.numpy()
 
 
 
@@ -197,6 +244,9 @@ class Refiner:
             search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
         target.estimate_normals(
             search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
+        
+        loss = o3d.pipelines.registration.TukeyLoss(k=0.1)
+        p2l = o3d.pipelines.registration.TransformationEstimationPointToPlane(loss)
 
         # RANSAC Trials
         for i in range(trials):
@@ -207,7 +257,7 @@ class Refiner:
             # Perform ICP registration
             reg_result = o3d.pipelines.registration.registration_icp(
                 source, target, threshold, noisy_transformation,
-                o3d.pipelines.registration.TransformationEstimationPointToPlane(),
+                p2l,
                 o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=max_iter)
             )
 
