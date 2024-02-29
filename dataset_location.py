@@ -1,0 +1,1 @@
+DATASET_PATH = '/home/warra/bone_dataset_1/ply'
