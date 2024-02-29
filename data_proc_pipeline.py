@@ -3,7 +3,7 @@ import os
 import sys
 import json
 
-from pipeline import PointCloudProcessingPipeline
+from proc_pipeline import PointCloudProcessingPipeline
 import dataset_location
 
 
