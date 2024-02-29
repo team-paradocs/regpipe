@@ -48,10 +48,13 @@ class Refiner:
 
     
     def refine(self, source, target, transformation=np.eye(4)):
+
         if self.method == 'p2pl_icp':
             return self.p2pl_icp(source, target, transformation)
         elif self.method == 'robust_p2pl_icp':
             return self.robust_p2pl_icp(source, target, transformation)
+        elif self.method == 'ransac_icp':
+            return self.ransac_icp(source, target, transformation)
         else:
             print("Invalid refinement method.")
             return None
@@ -112,6 +115,43 @@ class Refiner:
         print(reg_result)
 
         return reg_result.transformation
+    
+
+    def ransac_icp(self, source, target, initial_transformation, trials=300):
+        '''
+        RANSAC ICP
+        '''
+        threshold = 0.02
+        max_iter = 30
+        best_transformation = None
+        best_fitness = 0.0
+
+        # Compute normals for the source and target point clouds
+        source.estimate_normals(
+            search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
+        target.estimate_normals(
+            search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
+
+        # RANSAC Trials
+        for i in range(trials):
+            # Add Gaussian noise to the initial transformation
+            noise = np.random.normal(0, 0.02, (4, 4))
+            noisy_transformation = initial_transformation + noise
+
+            # Perform ICP registration
+            reg_result = o3d.pipelines.registration.registration_icp(
+                source, target, threshold, noisy_transformation,
+                o3d.pipelines.registration.TransformationEstimationPointToPlane(),
+                o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=max_iter)
+            )
+
+            # Update the best transformation based on fitness
+            if reg_result.fitness > best_fitness:
+                best_fitness = reg_result.fitness
+                best_transformation = reg_result.transformation
+
+        print(f"Best Fitness: {best_fitness}")
+        return best_transformation
 
 
 
