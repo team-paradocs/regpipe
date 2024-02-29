@@ -10,10 +10,12 @@ import dataset_location
 class PointCloudVisualizer:
     def __init__(self, directory):
         self.directory = directory
-        self.ply_files = [file for file in os.listdir(directory) if file.endswith('.ply')]
+        self.ply_files = [file for file in sorted(os.listdir(directory)) if file.endswith('.ply')]
         if not self.ply_files:
             print("No .ply files found in the directory.")
             sys.exit(0)
+        else:
+            print(self.ply_files)
         self.current_index = 0
         self.vis = o3d.visualization.VisualizerWithKeyCallback()
         
@@ -45,8 +47,9 @@ class PointCloudVisualizer:
         self.update_visualization()
 
     def save_cloud(self):
-        o3d.io.write_point_cloud("filtered/cloud_{}.ply".format(self.current_index), self.point_cloud)
-        print("Saved cloud_{}.ply".format(self.current_index))
+        file_name = self.ply_files[self.current_index].split(".")[0]
+        o3d.io.write_point_cloud("filtered/filtered_{}.ply".format(file_name), self.point_cloud)
+        print("Saved filtered point cloud to filtered/filtered_{}.ply".format(file_name))
     
     def run(self):
         self.vis.create_window()
