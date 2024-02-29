@@ -10,6 +10,10 @@ class Estimator:
     def estimate(self, source, target):
         if self.method == 'centroid':
             return self.centroid(source, target)
+        elif self.method == 'fpfh':
+            return self.fpfh(source, target)
+        elif self.method == 'fast_fpfh':
+            return self.fast_fpfh(source, target)
         else:
             print("Invalid estimation method.")
             return None
@@ -40,6 +44,68 @@ class Estimator:
         transformation = translation_back @ rotation_4x4 @ translation_to_origin
 
         return transformation
+    
+    def fpfh(self, source, target):
+        '''
+        FPFH-based global registration using RANSAC
+        '''
+        voxel_size = 0.05
+        radius = voxel_size * 2
+        distance_threshold = voxel_size * 1.5
+
+        source.estimate_normals(
+            search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius, max_nn=30))
+        target.estimate_normals(
+            search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius, max_nn=30))
+        
+        source_fpfh = o3d.pipelines.registration.compute_fpfh_feature(
+            source, o3d.geometry.KDTreeSearchParamHybrid(radius=radius, max_nn=100))
+        target_fpfh = o3d.pipelines.registration.compute_fpfh_feature(
+            target, o3d.geometry.KDTreeSearchParamHybrid(radius=radius, max_nn=100))
+        
+        result = o3d.pipelines.registration.registration_ransac_based_on_feature_matching(
+            source, target, source_fpfh, target_fpfh, True, distance_threshold,
+            o3d.pipelines.registration.TransformationEstimationPointToPoint(False), 3,
+            [o3d.pipelines.registration.CorrespondenceCheckerBasedOnEdgeLength(0.9),
+             o3d.pipelines.registration.CorrespondenceCheckerBasedOnDistance(distance_threshold)],
+            o3d.pipelines.registration.RANSACConvergenceCriteria(100000, 0.999))
+        
+        return result.transformation
+    
+
+    def fast_fpfh(self,source,target):
+        '''
+        FPFH-based fast global registration
+        '''
+        voxel_size = 0.05
+        radius = voxel_size * 2
+        distance_threshold = voxel_size * 0.5
+
+        source.estimate_normals(
+            search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius, max_nn=30))
+        target.estimate_normals(
+            search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius, max_nn=30))
+        
+        source_fpfh = o3d.pipelines.registration.compute_fpfh_feature(
+            source, o3d.geometry.KDTreeSearchParamHybrid(radius=radius, max_nn=100))
+        target_fpfh = o3d.pipelines.registration.compute_fpfh_feature(
+            target, o3d.geometry.KDTreeSearchParamHybrid(radius=radius, max_nn=100))
+        
+        result = o3d.pipelines.registration.registration_fgr_based_on_feature_matching(
+        source, target, source_fpfh, target_fpfh,
+        o3d.pipelines.registration.FastGlobalRegistrationOption(
+            maximum_correspondence_distance=distance_threshold))
+        
+        return result.transformation
+        
+
+        
+        
+
+
+
+
+
 
 class Refiner:
     def __init__(self, method='p2pl_icp'):
