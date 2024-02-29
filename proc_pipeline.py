@@ -110,7 +110,6 @@ class PointCloudProcessingPipeline:
         min_points = 10
         self.cluster_dbscan(eps, min_points)
         self.outlier_removal()
-        self.cluster_dbscan(0.005, 20, color=True)
 
         return self.pcd
 

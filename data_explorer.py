@@ -5,13 +5,14 @@ import json
 import dataset_location
 
 class PointCloudVisualizer:
-    def __init__(self, directory):
+    def __init__(self, directory,markers=[]):
         self.directory = directory
         self.ply_files = [file for file in os.listdir(directory) if file.endswith('.ply')]
         if not self.ply_files:
             print("No .ply files found in the directory.")
             sys.exit(0)
         self.current_index = 0
+        self.markers = markers
         self.vis = o3d.visualization.VisualizerWithKeyCallback()
         
     def load_point_cloud(self, index):
@@ -23,17 +24,19 @@ class PointCloudVisualizer:
         self.point_cloud = self.load_point_cloud(self.current_index)
 
         # Custom Markers
-        # Obb
-        obb = self.point_cloud.get_oriented_bounding_box()
-        obb.color = (1, 0, 0)
-        self.vis.add_geometry(obb)
+        # Oriented Bounding Box
+        if 'obb' in self.markers:
+            obb = self.point_cloud.get_oriented_bounding_box()
+            obb.color = (1, 0, 0)
+            self.vis.add_geometry(obb)
 
-        # Add center
-        center = o3d.geometry.TriangleMesh.create_sphere(radius=0.01)
-        center.compute_vertex_normals()
-        center.paint_uniform_color([0, 0, 1])
-        center.translate(self.point_cloud.get_center())
-        self.vis.add_geometry(center)
+        # Point Cloud Center
+        if 'pcd_center' in self.markers:
+            center = o3d.geometry.TriangleMesh.create_sphere(radius=0.01)
+            center.compute_vertex_normals()
+            center.paint_uniform_color([0, 0, 1])
+            center.translate(self.point_cloud.get_center())
+            self.vis.add_geometry(center)
 
 
         self.vis.add_geometry(self.point_cloud)
@@ -69,5 +72,6 @@ class PointCloudVisualizer:
 if __name__ == "__main__":
     directory_path = dataset_location.DATASET_PATH
     directory_path = "filtered"
-    visualizer = PointCloudVisualizer(directory_path)
+    markers = ['obb','pcd_center']
+    visualizer = PointCloudVisualizer(directory_path,markers)
     visualizer.run()
