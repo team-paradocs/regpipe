@@ -234,8 +234,8 @@ class Refiner:
         '''
         RANSAC ICP
         '''
-        threshold = 0.02
-        max_iter = 30
+        threshold = 0.01
+        max_iter = 50
         best_transformation = None
         best_fitness = 0.0
 
