@@ -2,11 +2,16 @@ import numpy as np
 import open3d as o3d
 
 FMR_ENABLED = True
+PROBREG = True
 
 if FMR_ENABLED:
     import torch
     from fmr.model import PointNet, Decoder, SolveRegistration
     import fmr.se_math.transforms as transforms
+
+if PROBREG:
+    import transforms3d as t3d
+    from probreg import filterreg
 
 
 class Estimator:
@@ -168,6 +173,10 @@ class Refiner:
             return self.robust_p2pl_icp(source, target, transformation)
         elif self.method == 'ransac_icp':
             return self.ransac_icp(source, target, transformation)
+        elif self.method == 'filterreg':
+            if not PROBREG:
+                raise RuntimeError("Probreg is not enabled.")
+            return self.ransac_filterreg(source, target, transformation)
         else:
             print("Invalid refinement method.")
             return None
@@ -230,12 +239,12 @@ class Refiner:
         return reg_result.transformation
     
 
-    def ransac_icp(self, source, target, initial_transformation, trials=300):
+    def ransac_icp(self, source, target, initial_transformation, trials=100):
         '''
         RANSAC ICP
         '''
         threshold = 0.01
-        max_iter = 50
+        max_iter = 30
         best_transformation = None
         best_fitness = 0.0
 
@@ -268,7 +277,56 @@ class Refiner:
 
         print(f"Best Fitness: {best_fitness}")
         return best_transformation
+    
+    def filterreg(self, source, target):
+        '''
+        FilterReg from Probreg
+        '''
+        objective_type = 'pt2pt'
+        tf_param, _, _ = filterreg.registration_filterreg(source, target,
+                                                  objective_type=objective_type,
+                                                  sigma2=None,
+                                                  update_sigma2=True)
+        
+        rot = tf_param.rot
+        t = tf_param.t
 
+        transformation = np.eye(4)
+        transformation[0:3, 0:3] = rot
+        transformation[0:3, 3] = t
+
+        return transformation
+    
+
+    def ransac_filterreg(self, source, target, initial_transformation, trials=10):
+        '''
+        RANSAC FilterReg
+        '''
+        best_transformation = None
+        best_sig = 1e7
+        source.estimate_normals(
+            search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
+        target.estimate_normals(
+            search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
+        
+
+        for i in range(trials):
+            # Add Gaussian noise to the initial transformation
+            noise = np.random.normal(0, 0.02, (4, 4))
+            noisy_transformation = initial_transformation + noise
+
+            # Perform FilterReg registration
+            transformation, sig2, qval = filterreg.registration_filterreg(source, target,
+                                                                           objective_type='pt2pt',
+                                                                           sigma2=None,update_sigma2=True)
+            
+            print(f"Trial {i+1} - Sigma2: {sig2}, Qval: {qval}")
+            if sig2 < best_sig:
+                best_sig = sig2
+                best_transformation = transformation
+
+        return best_transformation
+    
 
 
 
