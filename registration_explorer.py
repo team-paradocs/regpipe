@@ -5,6 +5,7 @@ import dataset_location
 from registration import Estimator, Refiner
 import numpy as np
 import time
+import yaml
 
 class PointCloudVisualizerWithRegistration:
     def __init__(self, directories, source_file, markers=[]):
@@ -14,6 +15,8 @@ class PointCloudVisualizerWithRegistration:
         self.dataset_files = [file for file in sorted(os.listdir(self.dataset_directory)) if file.endswith('.ply')]
         self.target_files = [file for file in sorted(os.listdir(self.target_directory)) if file.endswith('.ply')]
         self.source_path = source_file
+        self.plan_path = "source/plan_config.yaml"
+        self.plan = "plan2"
 
 
         if not self.target_files:
@@ -151,22 +154,22 @@ class PointCloudVisualizerWithRegistration:
         global_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[0, 0, 0])
         self.vis.add_geometry(global_frame)
 
+    def load_plan_points(self,plan_name):
+        with open(self.plan_path, 'r') as file:
+            data = yaml.safe_load(file)  # Use safe_load to prevent arbitrary code execution
+            plan_data = data.get(plan_name, {})
+            p1 = np.array(plan_data.get('p1', [])) / 1000.0
+            p2 = np.array(plan_data.get('p2', [])) / 1000.0
+            p3 = np.array(plan_data.get('p3', [])) / 1000.0
+            return p1, p2, p3
+
 
     def compute_plan(self, transform):
         """Computes the surgical drill point by transforming the default point with the given transform."""
 
 
-        # PLAN 1
-        # Points in m
-        p1 = np.array([13.98485, -36.4029, 20.07205]) / 1000.00
-        p2 = np.array([12.98173, -37.48651, 17.947]) / 1000.00
-        p3 = np.array([16.12607, -38.20582, 18.66463]) / 1000.0
-
-        # PLAN 2
-        # Points (x,y,z) in m
-        p1 = np.array([2.899343, 4.66568, 22.83373]) / 1000.00
-        p2 = np.array([1.10593, 7.09621, 22.13024]) / 1000.00
-        p3 = np.array([0.203026, 3.98506, 21.95038]) / 1000.0
+        t0 = time.time()
+        p1, p2, p3 = self.load_plan_points(self.plan)
 
         # Create a triangle mesh from the points
         mesh = o3d.geometry.TriangleMesh()
@@ -186,6 +189,9 @@ class PointCloudVisualizerWithRegistration:
         T = np.eye(4)
         T[:3, :3] = Rot
         T[:3, 3] = p3
+
+        t1 = time.time()
+        print("Time taken to compute plan: ", t1 - t0)
 
         T = np.dot(transform, T)
 
