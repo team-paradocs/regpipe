@@ -118,15 +118,15 @@ class PointCloudVisualizerWithRegistration:
 
     def register(self):
         print("Registering...")
+        src_center = self.source_cloud.get_center()
+        print("Source Center: ", src_center)
 
         init_transformation = self.estimator.estimate(self.source_cloud, self.target_cloud)
 
-        self.source_cloud = self.source_cloud.voxel_down_sample(voxel_size=0.005)
-        self.target_cloud = self.target_cloud.voxel_down_sample(voxel_size=0.005)
+        self.source_cloud = self.source_cloud.voxel_down_sample(voxel_size=0.003)
+        self.target_cloud = self.target_cloud.voxel_down_sample(voxel_size=0.003)
 
-        # noise = np.random.normal(0, 0.02, (4,4))
-        # init_transformation += noise
-        # self.source_cloud.transform(init_transformation)
+        src_center = self.source_cloud.get_center()
 
 
         transform = self.refiner.refine(self.source_cloud, self.target_cloud, init_transformation)
@@ -136,10 +136,71 @@ class PointCloudVisualizerWithRegistration:
         self.source_cloud.transform(transform)
 
 
+        cframe = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.05, origin=[0, 0, 0])
+        
+        transformed_plan = self.compute_plan(transform)
+        print(self.compute_plan(transform)) 
+
+        cframe.transform(transformed_plan)
+
+
+
+        # print(pose)
+        self.vis.add_geometry(cframe)
+
+        global_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[0, 0, 0])
+        self.vis.add_geometry(global_frame)
+
+
+    def compute_plan(self, transform):
+        """Computes the surgical drill point by transforming the default point with the given transform."""
+
+
+        # PLAN 1
+        # Points in m
+        p1 = np.array([13.98485, -36.4029, 20.07205]) / 1000.00
+        p2 = np.array([12.98173, -37.48651, 17.947]) / 1000.00
+        p3 = np.array([16.12607, -38.20582, 18.66463]) / 1000.0
+
+        # PLAN 2
+        # Points (x,y,z) in m
+        p1 = np.array([2.899343, 4.66568, 22.83373]) / 1000.00
+        p2 = np.array([1.10593, 7.09621, 22.13024]) / 1000.00
+        p3 = np.array([0.203026, 3.98506, 21.95038]) / 1000.0
+
+        # Create a triangle mesh from the points
+        mesh = o3d.geometry.TriangleMesh()
+        mesh.vertices = o3d.utility.Vector3dVector([p1, p2, p3])
+        mesh.triangles = o3d.utility.Vector3iVector([[0, 1, 2]])
+        mesh.compute_vertex_normals()
+        normal =  np.asarray(mesh.vertex_normals)[0]
+        actual_normal = -normal
+        z_axis = np.array([0, 0, 1])
+        rotation_axis = np.cross(z_axis, actual_normal)
+        rotation_axis /= np.linalg.norm(rotation_axis)
+        angle = np.arccos(np.dot(z_axis, actual_normal) / (np.linalg.norm(z_axis) * np.linalg.norm(actual_normal)))
+
+        Rot = o3d.geometry.get_rotation_matrix_from_axis_angle(rotation_axis * angle)
+
+        # Default pose
+        T = np.eye(4)
+        T[:3, :3] = Rot
+        T[:3, 3] = p3
+
+        T = np.dot(transform, T)
+
+        print("Transformed Plan: ")
+        print(T)
+        print("--------------------")
+
+        return T
+
+
 if __name__ == "__main__":
     full_directory_path = dataset_location.DATASET_PATH
     target_directory_path = "filtered"
-    source_file_path = "source/femur.ply"
+    # source_file_path = "source/femur.ply"
+    source_file_path = "source/femur_drilled.ply"
     directories = [full_directory_path, target_directory_path]
     markers = ['obb','pcd_center']
     visualizer = PointCloudVisualizerWithRegistration(directories,source_file_path,markers)
