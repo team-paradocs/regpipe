@@ -7,12 +7,12 @@ parent_dir = os.path.dirname(current_dir)
 src_dir = os.path.join(parent_dir, 'source/')
 
 # Load the point cloud from the PLY file
-point_cloud = o3d.io.read_point_cloud(src_dir + "femur_drilled.ply")
+point_cloud = o3d.io.read_point_cloud(src_dir + "femur_shell.ply")
 point_cloud.paint_uniform_color([0.5, 0.5, 0.5])
 pcd_center = point_cloud.get_center()
 
 # Original STL
-stl = o3d.io.read_triangle_mesh(src_dir + "femur_drilled.stl")
+stl = o3d.io.read_triangle_mesh(src_dir + "femur_shell.stl")
 stl.compute_vertex_normals()
 stl.scale(0.001, center=[0, 0, 0])
 stl_center = stl.get_center()

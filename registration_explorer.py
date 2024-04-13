@@ -121,8 +121,9 @@ class PointCloudVisualizerWithRegistration:
 
     def register(self):
         print("Registering...")
-        src_center = self.source_cloud.get_center()
-        print("Source Center: ", src_center)
+        t0 = time.time()
+        # src_center = self.source_cloud.get_center()
+        # print("Source Center: ", src_center)
 
         init_transformation = self.estimator.estimate(self.source_cloud, self.target_cloud)
 
@@ -133,8 +134,10 @@ class PointCloudVisualizerWithRegistration:
 
 
         transform = self.refiner.refine(self.source_cloud, self.target_cloud, init_transformation)
-        print("Transformation Matrix: ")
-        print(transform)
+        # print("Transformation Matrix: ")
+        # print(transform)
+        t1 = time.time()
+        print("Time taken to register: ", t1 - t0)
 
         self.source_cloud.transform(transform)
 
@@ -142,7 +145,6 @@ class PointCloudVisualizerWithRegistration:
         cframe = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.05, origin=[0, 0, 0])
         
         transformed_plan = self.compute_plan(transform)
-        print(self.compute_plan(transform)) 
 
         cframe.transform(transformed_plan)
 
@@ -191,13 +193,13 @@ class PointCloudVisualizerWithRegistration:
         T[:3, 3] = p3
 
         t1 = time.time()
-        print("Time taken to compute plan: ", t1 - t0)
+        # print("Time taken to compute plan: ", t1 - t0)
 
         T = np.dot(transform, T)
 
-        print("Transformed Plan: ")
-        print(T)
-        print("--------------------")
+        # print("Transformed Plan: ")
+        # print(T)
+        # print("--------------------")
 
         return T
 
