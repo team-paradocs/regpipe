@@ -100,12 +100,11 @@ class PointCloudProcessingPipeline:
         
 
 
-    def run(self,debug=False):
+    def run(self,debug=True):
         self.debug = debug
         self.load_point_cloud()
-        # self.crop_point_cloud()
+        self.crop_point_cloud()
         self.segment_plane(iter=1)
-        # Adjust eps and min_points as needed
         eps = 0.003
         min_points = 10
         self.cluster_dbscan(eps, min_points)

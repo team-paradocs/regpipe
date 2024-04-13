@@ -23,6 +23,9 @@ class PointCloudVisualizer:
         self.vis.clear_geometries()
         self.point_cloud = self.load_point_cloud(self.current_index)
 
+        # Shift the point cloud to the origin
+        self.point_cloud = self.point_cloud.translate(-self.point_cloud.get_center())
+
         # Custom Markers
         # Oriented Bounding Box
         if 'obb' in self.markers:
@@ -56,15 +59,6 @@ class PointCloudVisualizer:
         self.vis.create_window()
         self.vis.register_key_callback(262, lambda vis: self.next_cloud())  # Right arrow key
         self.vis.register_key_callback(263, lambda vis: self.previous_cloud())  # Left arrow key
-
-
-        view_control = self.vis.get_view_control()
-        view_control.set_front([-0.00022986335794028144, 0.18784944702287554, 0.9821978071732989])
-        view_control.set_lookat([-0.023245651523880972, 0.004731096545583302, -1.6438119959420225])
-        view_control.set_up([-0.0026792206420369336, 0.9821941922094379, -0.1878493826628165])
-        view_control.set_zoom(0.25999999999999956)
-
-        view_control.camera_local_translate(forward=0, right=0.5, up=0)
 
         self.update_visualization()
         self.vis.run()
