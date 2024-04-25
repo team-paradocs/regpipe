@@ -1,6 +1,14 @@
 import numpy as np
 import open3d as o3d
 
+import time
+import multiprocessing
+from multiprocessing import Pool
+try:
+    multiprocessing.set_start_method('spawn')
+except RuntimeError:
+    pass
+
 FMR_ENABLED = True
 PROBREG = True
 
@@ -121,7 +129,7 @@ class Estimator:
         '''
 
         dim_k = 1024
-        max_iter = 10
+        max_iter = 100
         loss_type = 1
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
@@ -249,10 +257,14 @@ class Refiner:
         best_fitness = 0.0
 
         # Compute normals for the source and target point clouds
+        t0 = time.time()
         source.estimate_normals(
             search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
         target.estimate_normals(
             search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
+        
+        t1 = time.time()
+        print(f"Normal Estimation Time: {t1-t0}")
         
         loss = o3d.pipelines.registration.TukeyLoss(k=0.1)
         p2l = o3d.pipelines.registration.TransformationEstimationPointToPlane(loss)
@@ -277,6 +289,7 @@ class Refiner:
 
         print(f"Best Fitness: {best_fitness}")
         return best_transformation
+    
     
     def filterreg(self, source, target):
         '''
@@ -320,16 +333,91 @@ class Refiner:
                                                                            objective_type='pt2pt',
                                                                            sigma2=None,update_sigma2=True)
             
-            print(f"Trial {i+1} - Sigma2: {sig2}, Qval: {qval}")
+            # print(f"Trial {i+1} - Sigma2: {sig2}, Qval: {qval}")
             if sig2 < best_sig:
                 best_sig = sig2
                 best_transformation = transformation
 
+        r = best_transformation.rot
+        t = best_transformation.t
+
+        T = np.eye(4)
+        T[0:3, 0:3] = r
+        T[0:3, 3] = t
+        best_transformation = T
+
+        return best_transformation
+    
+    def ransac_icp2(self, source, target, initial_transformation, trials=16):
+        '''
+        RANSAC ICP in Parallel
+        '''
+        threshold = 0.01
+        max_iter = 50
+        best_transformation = None
+        best_fitness = 0.0
+
+        source_pts = np.asarray(source.points)
+        target_pts = np.asarray(target.points)
+
+        args = [(source_pts, target_pts, initial_transformation, threshold, max_iter) for _ in range(trials)]
+
+        with Pool(4) as pool:
+            results = pool.map(ransac_icp_trial, args)
+
+        for fitness, transformation in results:
+            if fitness > best_fitness:
+                best_fitness = fitness
+                best_transformation = transformation
+
+        print(f"Best Fitness: {best_fitness}")
         return best_transformation
     
 
 
+# Global Variables for Registration
 
     
+
+def ransac_icp_trial(args):
+    src_pts, tgt_pts, init_transformation, threshold, max_iter = args
+
+    t0 = time.time()
+
+    source = o3d.geometry.PointCloud()
+    target = o3d.geometry.PointCloud()
+    source.points = o3d.utility.Vector3dVector(src_pts)
+    target.points = o3d.utility.Vector3dVector(tgt_pts)
+
+    # print(type(source))
+    print(type(o3d.pipelines.registration.registration_icp))
+
+
+    source.estimate_normals(
+        search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
+    target.estimate_normals(
+        search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
+    
+
+    loss = o3d.pipelines.registration.TukeyLoss(k=0.1)
+    p2l = o3d.pipelines.registration.TransformationEstimationPointToPlane(loss)
+
+    t1 = time.time()
+
+    print(f"Setup Time: {t1-t0}")
+    
+    noise = np.random.normal(0, 0.02, (4, 4))
+    noisy_transformation = init_transformation + noise
+
+    reg_result = o3d.pipelines.registration.registration_icp(
+        source, target, threshold, noisy_transformation,
+        p2l,
+        o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=max_iter)
+    )
+
+    return reg_result.fitness, reg_result.transformation
+
+    
+
 
     
