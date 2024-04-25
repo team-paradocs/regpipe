@@ -210,7 +210,7 @@ if __name__ == "__main__":
     # source_file_path = "source/femur.ply"
     source_file_path = "source/femur_drilled.ply"
     source_file_path = "source/filtered_femur.ply"
-    source_file_path = "source/femur_shell.ply"
+    source_file_path = "source/femur_shell2.ply"
     directories = [full_directory_path, target_directory_path]
     markers = ['obb','pcd_center']
     visualizer = PointCloudVisualizerWithRegistration(directories,source_file_path,markers)

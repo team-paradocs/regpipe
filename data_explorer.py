@@ -3,6 +3,7 @@ import os
 import sys
 import json
 import dataset_location
+import numpy as np
 
 class PointCloudVisualizer:
     def __init__(self, directory,markers=[]):
@@ -20,6 +21,7 @@ class PointCloudVisualizer:
         return o3d.io.read_point_cloud(file_path)
     
     def update_visualization(self):
+        print("Current Index: ", self.current_index)
         self.vis.clear_geometries()
         self.point_cloud = self.load_point_cloud(self.current_index)
 
@@ -40,6 +42,26 @@ class PointCloudVisualizer:
             center.paint_uniform_color([0, 0, 1])
             center.translate(self.point_cloud.get_center())
             self.vis.add_geometry(center)
+
+        # cl,ind = self.point_cloud.remove_statistical_outlier(nb_neighbors=10,std_ratio=0.2)
+        # total_points = np.asarray(self.point_cloud.points).shape[0]
+        # print(f"Removed {total_points - np.asarray(cl.points).shape[0]} outliers from the point cloud")
+
+        # self.point_cloud = self.point_cloud.select_by_index(ind)
+
+        # cl,ind = self.point_cloud.remove_radius_outlier(nb_points=100,radius=0.01)
+        # total_points = np.asarray(self.point_cloud.points).shape[0]
+        # print(f"Removed {total_points - np.asarray(cl.points).shape[0]} outliers from the point cloud")
+
+        # self.point_cloud = self.point_cloud.select_by_index(ind)
+
+        # # Estimate normals
+        # self.point_cloud.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
+
+
+        # # Add a global reference frame
+        # coord_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=self.point_cloud.get_center())
+        # self.vis.add_geometry(coord_frame)
 
 
         self.vis.add_geometry(self.point_cloud)
@@ -65,7 +87,7 @@ class PointCloudVisualizer:
 
 if __name__ == "__main__":
     directory_path = dataset_location.DATASET_PATH
-    directory_path = "filtered"
-    markers = ['obb','pcd_center']
-    visualizer = PointCloudVisualizer(directory_path,markers)
+    # directory_path = "filtered"
+    # markers = ['obb','pcd_center']
+    visualizer = PointCloudVisualizer(directory_path)
     visualizer.run()

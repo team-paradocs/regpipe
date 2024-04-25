@@ -163,6 +163,7 @@ cython_debug/
 # Filtered Point Clouds
 /filtered/
 /results/
+/manual/
 
 
 /temp/

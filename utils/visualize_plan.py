@@ -7,13 +7,15 @@ parent_dir = os.path.dirname(current_dir)
 src_dir = os.path.join(parent_dir, 'source/')
 
 # Load the point cloud from the PLY file
-point_cloud = o3d.io.read_point_cloud(src_dir + "femur_shell.ply")
-point_cloud.paint_uniform_color([0.5, 0.5, 0.5])
+point_cloud = o3d.io.read_point_cloud(src_dir + "femur_shell2.ply")
+point_cloud.paint_uniform_color([0.9, 0.9, 0.9])
 pcd_center = point_cloud.get_center()
 
 # Original STL
-stl = o3d.io.read_triangle_mesh(src_dir + "femur_shell.stl")
+stl = o3d.io.read_triangle_mesh(src_dir + "femur_shell2.stl")
 stl.compute_vertex_normals()
+stl.paint_uniform_color([0.5, 0.5, 0.5])
+# stl.paint_uniform_color([0.9, 0.9, 0.9])
 stl.scale(0.001, center=[0, 0, 0])
 stl_center = stl.get_center()
 
@@ -61,7 +63,7 @@ normal =  np.asarray(mesh.vertex_normals)[0]
 
 
 # Create Coordinate Frame
-pose = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.005, origin=[0, 0, 0])
+pose = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.01, origin=[0, 0, 0])
 
 # Transform the Coordinate Frame
 actual_normal = -normal
@@ -86,17 +88,18 @@ R_ = o3d.geometry.get_rotation_matrix_from_axis_angle(axis * theta)
 pose.rotate(R_, center=p3)
 
 # Create Global Coordinate Frame
-global_pose = o3d.geometry.TriangleMesh.create_coordinate_frame(size=.001, origin=[0, 0, 0])
+global_pose = o3d.geometry.TriangleMesh.create_coordinate_frame(size=.0005, origin=[0, 0, 0])
 sc_pose = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.001, origin=stl_center)
 
 
 
 
-# Visualize wrt point cloud
-scene = [point_cloud, sphere1, sphere2, sphere3, mesh, pose]
-o3d.visualization.draw_geometries(scene)
+# # Visualize wrt point cloud
+# scene = [point_cloud, sphere1, sphere2, sphere3, mesh, pose]
+# o3d.visualization.draw_geometries(scene)
 
 # Visualize wrt STL
 # scene = [sphere1, sphere2, sphere3, mesh, pose, global_pose, sc_pose, stl]
-# o3d.visualization.draw_geometries(scene)
+scene = [ sphere3, pose, stl]
+o3d.visualization.draw_geometries(scene)
 
